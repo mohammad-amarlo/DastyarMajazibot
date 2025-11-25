@@ -1,59 +1,56 @@
-    import logging
-    import os
-    from telegram import Update
-    from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
-    from fastapi import FastAPI
-    import uvicorn
-    import asyncio
-    import nest_asyncio
+import os
+import logging
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-    nest_asyncio.apply()
+# ------------------------------
+# تنظیمات لاگر برای مانیتور خروجی
+# ------------------------------
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
-    # توکن ربات شما
-    # برای امنیت، این توکن را از "Secrets" (متغیرهای محیطی) Replit دریافت می‌کنیم.
-    # اگر در Secrets تنظیم نشده بود، از توکن پیش‌فرض شما استفاده می‌شود.
-    TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8447298172:AAGIPXwUuC1FdJ7-nwuCrs8njTMSH5ee_I4")
+# ------------------------------
+# تعریف دستورات پایه
+# ------------------------------
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("سلام 👋 من 🚦دستیار مجازی🚦 هستم، آماده‌ام!")
 
-    # پورتی که وب‌سرور ربات شما روی آن گوش می‌کند.
-    # Replit خودش یک پورت را اختصاص می‌دهد که از طریق متغیر محیطی PORT در دسترس است.
-    PORT = int(os.environ.get("PORT", "8000"))
+async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("لیست دستورات من به‌زودی اضافه می‌شود...")
 
-    # تنظیمات لاگ‌گیری برای نمایش اطلاعات در کنسول Replit
-    logging.basicConfig(
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+# ------------------------------
+# تابع اصلی
+# ------------------------------
+def main():
+    TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+    if not TELEGRAM_BOT_TOKEN:
+        logger.error("❌ TELEGRAM_BOT_TOKEN environment variable not set.")
+        raise ValueError("TELEGRAM_BOT_TOKEN not found.")
+
+    # آدرس عمومی (همان لینک Replit)
+    WEBHOOK_URL = f"https://dastyarmajazibot.mhghy92.repl.co/{TELEGRAM_BOT_TOKEN}"
+
+    # ساخت اپلیکیشن
+    application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+
+    # افزودن هندلرها
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("help", help_cmd))
+
+    # اجرای سرور به صورت Webhook
+    logger.info("🚀 Starting bot using Webhook Mode...")
+    application.run_webhook(
+        listen="0.0.0.0",
+        port=int(os.getenv("PORT", 8000)),  # Replit معمولاً از پورت 8000 استفاده می‌کند
+        url_path=TELEGRAM_BOT_TOKEN,
+        webhook_url=WEBHOOK_URL
     )
-    logger = logging.getLogger(__name__)
 
-    # تابع هندلر برای دستور /start
-    async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """پیام خوشامدگویی هنگام اجرای دستور /start."""
-        user = update.effective_user
-        await update.message.reply_html(
-            rf"سلام خالق من {user.mention_html()}! من دستیار مجازی تو هستم و آماده خدمت.",
-        )
-
-    # تابع هندلر برای پاسخ به پیام‌های متنی (مثلاً echo)
-    async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """پیام کاربر را تکرار می‌کند."""
-        await update.message.reply_text(update.message.text)
-
-    def main() -> None:
-        """شروع به کار ربات."""
-        application = Application.builder().token(TOKEN).build()
-        application.add_handler(CommandHandler("start", start_command))
-        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
-
-        # اجرای ربات در حالت Webhook
-        # Replit این وب‌سرور را میزبانی می‌کند و یک آدرس عمومی به آن می‌دهد.
-        application.run_webhook(
-            listen="0.0.0.0", # گوش دادن روی همه رابط‌های شبکه داخلی Replit
-            port=PORT,
-            url_path=TOKEN # مسیری که تلگرام درخواست‌ها را به آن می‌فرستد (برای امنیت بیشتر)
-        )
-
-        logger.info(f"ربات بر روی پورت {PORT} در حالت Webhook شروع به کار کرد.")
-        logger.info("پس از شروع به کار Replit، باید Webhook URL نهایی را به تلگرام معرفی کنید.")
-
-
-    if __name__ == "__main__":
-        main()
+# ------------------------------
+# اجرای فایل
+# ------------------------------
+if __name__ == "__main__":
+    main()
